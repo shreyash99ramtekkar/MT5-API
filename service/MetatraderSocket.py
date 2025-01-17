@@ -65,7 +65,7 @@ class MetatraderSocket:
         tp = float(message['tp1'])
         tp2 = float(message['tp2'])
         action_ = None;
-        pips = 25
+        pips = 10
         price = float(message['entry_price'])
         if len(symbol) == 0 or len(type_) == 0 or sl is None or tp is None or price is None:
             logger.warning("Cannot proceed. The trade info not sufficient to make a trade")
@@ -73,7 +73,7 @@ class MetatraderSocket:
         
         symbol_info = self.mt5.symbol_info(symbol)
         if symbol == "GOLD":
-            pips = 35
+            pips = 20
         point = symbol_info.point  * 10 * pips
         if "BUY" == type_:
             price = price - point
