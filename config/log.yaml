@@ -1,0 +1,29 @@
+version: 1
+disable_existing_loggers: no
+formatters:
+    # simple:
+    #     format: "[%(asctime)s] [%(levelname)s] [%(threadName)s] [%(name)s] [%(funcName)s()] [%(message)s]"
+    verbose:
+        format: "[%(asctime)s] [%(levelname)s] [%(threadName)s] [%(name)s] [%(funcName)s()] [%(message)s]"
+handlers:
+    # console:
+    #     class: logging.StreamHandler
+    #     level: DEBUG
+    #     formatter: simple
+    #     stream: ext://sys.stdout
+    file:
+        class: logging.handlers.TimedRotatingFileHandler
+        formatter: verbose
+        when: D
+        interval: 1
+        backupCount: 5
+        filename: logs/api.log
+loggers:
+    root:
+        level: INFO
+        handlers: [file]
+    # console:
+    #     level: DEBUG
+    #     handlers: [console]
+    #     propagate: yes
+    #     qualname: app

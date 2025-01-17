@@ -1,0 +1,6 @@
+flask-restful
+mt5linux
+python-dotenv
+sqlalchemy
+pymysql
+pyyaml
