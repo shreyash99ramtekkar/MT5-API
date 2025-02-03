@@ -43,8 +43,24 @@ class TradeRepository:
         logger.info("Trade saved successfully!")
         
     def process_trade_info(self,message,request,result):
-        self.save_trade_to_db(result.order,request['symbol'],request['type'],request['price'],request['sl'],request['tp'],message['tp2'],request['volume'],request['action'],message['time'],str(message))
+        self.save_trade_to_db(result.order,
+                              self.validate_key('symbol',request),
+                              self.validate_key('type',request),
+                              self.validate_key('price',request),
+                              self.validate_key('sl',request),
+                              self.validate_key('tp',request),
+                              self.validate_key('tp2',request),
+                              self.validate_key('volume',request),
+                              self.validate_key('action',request),
+                              message['time'],
+                              str(message))
         
+        
+    def validate_key(self,key,request):
+        if key in request:
+            return request[key]
+        return None
+    
     def get_trade_by_trade_info(self, trade_info):
             """
             Retrieve trades according to the trade info

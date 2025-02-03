@@ -27,11 +27,13 @@ class Trade(Resource):
     
     def post(self):
         args = add_trade_parser.parse_args()
-        socket.sendOrder(args)
+        socket.create_trade(args)
         return {"message": f'Trade recived successfully {str(args)}'}
     
     def put(self):
-        return {"message": "This is a response to a PUT request"}
+        args = add_trade_parser.parse_args()
+        socket.update_trade(args)
+        return {"message": f'Trade update request recived successfully {str(args)}'}
     
     def delete(self):
         return {'message': "This is a response to a DELETE request"}
