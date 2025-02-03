@@ -24,8 +24,6 @@ def start_monitoring():
     monitor_thread.daemon = True  # Allows the thread to exit when the main program does
     monitor_thread.start()
     logger.info("Monitoring thread started.")
-    socket.test()
-    
 
 with app.app_context():
     start_monitoring()

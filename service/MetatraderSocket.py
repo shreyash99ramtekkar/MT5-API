@@ -18,6 +18,8 @@ logger = fxstreetlogger.get_logger(__name__)
 
 class MetatraderSocket:
     def __init__(self):
+        """Initialize the connections to MT5, SQL
+        """
         self.tradedao = TradeRepository();
         logger.info(os.getenv("MT5_SERVER") + " port: "+ str(os.getenv("MT5_PORT")))
         # connecto to the server
@@ -35,64 +37,89 @@ class MetatraderSocket:
             logger.error("initialize() failed, error code =",self.mt5.last_error())
             telegram_obj.sendMessage("Problem connecting to Metatrader5" + str(self.mt5.last_error()))
         self.mt5.terminal_info()
-
-        
-
-    def get_rates(self):
-        df = self.mt5.copy_rates_from_pos('EURUSD',self.mt5.TIMEFRAME_M30,0,1000)
-        # ...
-        # don't forget to shutdown
-        return df
+    
 
     def check_n_get_order_type(self,symbol_info,type_,price):
-        """Check the prices from the vip channel match the symbol current price .if not then its a limit order"""
-        if (type_ == "BUY" or type_ == "BUY NOW"):
-        # if (type_ == "BUY" or type_ == "BUY NOW") and  math.floor(price) != math.floor(symbol_info.ask):
-            logger.info(f"The price [{math.floor(symbol_info.ask)}] doesn't match the telegram price [{math.floor(price)}]: Limit Order BUY")
-            return "BUY LIMIT"
-        elif (type_ == "SELL" or type_ == "SELL NOW"):
-        # elif (type_ == "SELL" or type_ == "SELL NOW") and  math.floor(price) != math.floor(symbol_info.bid):
-            logger.info(f"The price [{math.floor(symbol_info.bid)}] doesn't match the telegram price [{math.floor(price)}]: Limit Order SELL")
-            return "SELL LIMIT"
-        logger.info(f"The price match the telegram price [{price}]: {type_}")
-        telegram_obj.sendMessage(f"The order type is: [{type_}]")
-        return type_;
- 
-    def sendOrder(self,message):
-        symbol = message['currency']
-        type_ = message['trade_type']
-        sl = float(message['sl'])
-        tp = float(message['tp1'])
-        tp2 = float(message['tp2'])
-        action_ = None;
-        pips = 25
-        price = float(message['entry_price'])
-        if len(symbol) == 0 or len(type_) == 0 or sl is None or tp is None or price is None:
-            logger.warning("Cannot proceed. The trade info not sufficient to make a trade")
-            return;
-        
-        symbol_info = self.mt5.symbol_info(symbol)
-        if symbol == "GOLD":
-            pips = 35
-        point = symbol_info.point  * 10 * pips
-        if "BUY" == type_:
-            price = price - point
-            sl = sl - point
-            tp = tp - point
-            tp2 = tp2 - point
-        elif "SELL" == type_:
-            price = price + point
-            sl = sl + point
-            tp = tp + point
-            tp2 = tp2 + point
-        logger.info(f"Changing immidiate order to pending order for currency:{symbol} type:{type_} , price: {price}, sl = {sl}, tp = {tp}, tp2 ={tp2}")
+        # Number of pips (1 pip is typically 1, unless you need a smaller value, e.g., for precision)
+        pips = 1
 
-        type_ = self.check_n_get_order_type(symbol_info,type_,price)
-        message['trade_type'] = type_
-        message['sl'] = str(sl)
-        message['tp1'] = str(tp)
-        message['tp2'] = str(tp2)
-        logger.debug(symbol_info.volume_min)
+        # Calculate pip value from point
+        pip_value = symbol_info.point * 10 * pips
+
+        # Get current bid/ask prices
+        current_ask = symbol_info.ask
+        current_bid = symbol_info.bid
+
+        logger.info(f"Pip Value: {pip_value}")
+
+        if type_ in ["BUY", "BUY NOW"]:
+            if abs(price - current_ask) <= pip_value:
+                logger.info(f"The price {current_ask} matches the Telegram price [{price}]: {type_}")
+                return type_
+            else:
+                logger.info(f"The price [{current_ask}] doesn't match the Telegram price [{price}]: Limit Order BUY")
+                return "BUY LIMIT"
+
+        elif type_ in ["SELL", "SELL NOW"]:
+            if abs(price - current_bid) <= pip_value:
+                logger.info(f"The price {current_bid} matches the Telegram price [{price}]: {type_}")
+                return type_
+            else:
+                logger.info(f"The price [{current_bid}] doesn't match the Telegram price [{price}]: Limit Order SELL")
+                return "SELL LIMIT"
+
+        logger.warning(f"Unknown order type received: {type_}")
+        return type_  # Return original type if not recognized
+ 
+    def delta_trade(self):
+        #  sl = float(message['sl'])
+            # tp = float(message['tp1'])
+            # tp2 = float(message['tp2'])
+            # price = float(message['entry_price'])
+        
+        # pips = 10
+        # if symbol == "GOLD":
+        #     pips = 20
+        # point = symbol_info.point  * 10 * pips
+        # if "BUY" == type_:
+        #     price = price - point
+        #     sl = sl - point
+        #     tp = tp - point
+        #     tp2 = tp2 - point
+        # elif "SELL" == type_:
+        #     price = price + point
+        #     sl = sl + point
+        #     tp = tp + point
+        #     tp2 = tp2 + point
+        # logger.info(f"Changing immidiate order to pending order for currency:{symbol} type:{type_} , price: {price}, sl = {sl}, tp = {tp}, tp2 ={tp2}")
+
+        # type_ = self.check_n_get_order_type(symbol_info,type_,price)
+        # message['trade_type'] = type_
+        # message['sl'] = str(sl)
+        # message['tp1'] = str(tp)
+        # message['tp2'] = str(tp2)
+        # logger.debug(symbol_info.volume_min)
+        pass
+    
+    def create_trade(self,message):
+        logger.info(f"Received message {message}")
+        symbol = message['currency']
+        action_ = None;
+        symbol_info = self.mt5.symbol_info(symbol)
+        type_ = message['trade_type']
+        sl, tp, tp2, price = None, None, None, None
+        # Required parameter already check in the request
+        if message['sl'] is not None and message['tp1'] is not None and message['entry_price'] is not None:
+            sl = float(message['sl'])
+            tp = float(message['tp1'])
+            tp2 = float(message['tp2'])
+            price = float(message['entry_price'])
+            type_ = self.check_n_get_order_type(symbol_info,type_,price)
+        # message['trade_type'] = type_
+        # message['sl'] = str(sl)
+        # message['tp1'] = str(tp)
+        # message['tp2'] = str(tp2)
+        # logger.debug(symbol_info.volume_min)
         lot = 0.02;   
         #lot = symbol_info.volume_min;   
         deviation = 10
@@ -119,7 +146,7 @@ class MetatraderSocket:
         if action_ is None:
             logger.warning("Action is None cannot proceed")
             return;
-        telegram_obj.sendMessage(f"Currency: [{message['currency']}], type: [{type_}] SL: {sl}, TP: {tp} Action: {action_}" )
+        telegram_obj.sendMessage(f"Currency: [{message['currency']}],price: {price}, type: [{type_}] SL: {sl}, TP: {tp} Action: {action_}" )
         # if the symbol is unavailable in MarketWatch, add it
         if not symbol_info.visible:
             logger.info(symbol+ "is not visible, trying to switch on")
@@ -132,15 +159,15 @@ class MetatraderSocket:
             "volume": lot,
             "type": type_,
             "price": price,
-            "sl": sl,
-            "tp": tp,
             "deviation": deviation,
             "magic": 77777,
-            "comment": str(tp2),
-            "type_time": self.mt5.ORDER_TIME_GTC
+            "type_time": self.mt5.ORDER_TIME_DAY
             # "type_filling": self.mt5.ORDER_FILLING_IOC,
         }
-        
+        if sl is not None and tp is not None:
+            request["sl"] = sl
+            request["tp"] = tp
+            request["comment"]= str(tp2)
         logger.info("The request is ["+str(request)+"]")
         # send a trading request
         if (self.checkOldPosition()) or (self.checkOldPositionSymbol(symbol)) :
@@ -165,6 +192,17 @@ class MetatraderSocket:
                     logger.error(f"traderequest: {str(traderequest_dict)}")
                     # for tradereq_filed in traderequest_dict:
                     #     logger.error("traderequest: {}={}".format(tradereq_filed,traderequest_dict[tradereq_filed]))
+                    
+    def update_trade(self,message):
+        """Update the existing trade which is matching the message
+        
+        Keyword arguments:
+        message -- the existing trade info
+        Return: return_description
+        """
+        pass
+        
+        
 
     def checkOldPositionSymbol(self,symbol):
         threshold = 2
@@ -354,10 +392,6 @@ class MetatraderSocket:
             logger.info(f"Order {order.ticket} is a pending order.")
             return True
         return False
-    
-    def test(self):
-         point = self.mt5.symbol_info("GOLD").point *10*50
-         print(point)
     
     def close_connection(self):
         self.mt5.shutdown()
