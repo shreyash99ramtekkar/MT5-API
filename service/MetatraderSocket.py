@@ -105,7 +105,10 @@ class MetatraderSocket:
         logger.info(f"Received message {message}")
         symbol = message['currency']
         action_ = None;
+        if not self.mt5.symbol_select(symbol,True):
+            logger.warning("symbol_select({}}) failed, exit" + symbol)
         symbol_info = self.mt5.symbol_info(symbol)
+            
         type_ = message['trade_type']
         sl, tp, tp2, price = None, None, None, None
         # Required parameter already check in the request
@@ -148,10 +151,7 @@ class MetatraderSocket:
             return;
         telegram_obj.sendMessage(f"Currency: [{message['currency']}],price: {price}, type: [{type_}] SL: {sl}, TP: {tp} Action: {action_}" )
         # if the symbol is unavailable in MarketWatch, add it
-        if not symbol_info.visible:
-            logger.info(symbol+ "is not visible, trying to switch on")
-            if not self.mt5.symbol_select(symbol,True):
-                logger.warning("symbol_select({}}) failed, exit" + symbol)
+       
 
         request = {
             "action": action_,
