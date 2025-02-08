@@ -37,15 +37,19 @@ class MetatraderSocket:
             logger.error("initialize() failed, error code =",self.mt5.last_error())
             telegram_obj.sendMessage("Problem connecting to Metatrader5" + str(self.mt5.last_error()))
         self.mt5.terminal_info()
-    
+    0.0015600000000000058
 
     def check_n_get_order_type(self,symbol_info,type_,price):
         # Number of pips (1 pip is typically 1, unless you need a smaller value, e.g., for precision)
-        pips = 1
+        
+        if symbol_info.name == "GOLD":
+            return type_;
+        pips = 4
 
         # Calculate pip value from point
         pip_value = symbol_info.point * 10 * pips
-
+        print(symbol_info.name)
+        
         # Get current bid/ask prices
         current_ask = symbol_info.ask
         current_bid = symbol_info.bid
@@ -118,6 +122,8 @@ class MetatraderSocket:
             tp2 = float(message['tp2'])
             price = float(message['entry_price'])
             type_ = self.check_n_get_order_type(symbol_info,type_,price)
+            
+        print(type_)
         # message['trade_type'] = type_
         # message['sl'] = str(sl)
         # message['tp1'] = str(tp)
@@ -277,14 +283,11 @@ class MetatraderSocket:
             sleep(2)  # Avoid overloading the terminal
 
     def get_tolarance(self,symbol):
-        usd_factor=1
-        if "USD" in symbol:
-            usd_factor = 4
+        symbol_info = self.mt5.symbol_info(symbol)
+        point = symbol_info.point  * 10 
         if symbol == "GOLD" or symbol =="XAUUSD":
-            return 0.10 * usd_factor
-        elif "JPY" in symbol:
-            return 0.005 * usd_factor
-        return 0.00005 * usd_factor
+            return point * 6
+        return point * 4
 
     def is_float(self,string):
         try:
