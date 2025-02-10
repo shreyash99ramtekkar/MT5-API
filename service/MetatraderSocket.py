@@ -37,8 +37,7 @@ class MetatraderSocket:
             logger.error("initialize() failed, error code =",self.mt5.last_error())
             telegram_obj.sendMessage("Problem connecting to Metatrader5" + str(self.mt5.last_error()))
         self.mt5.terminal_info()
-    0.0015600000000000058
-
+        
     def check_n_get_order_type(self,symbol_info,type_,price):
         # Number of pips (1 pip is typically 1, unless you need a smaller value, e.g., for precision)
         
@@ -48,7 +47,7 @@ class MetatraderSocket:
 
         # Calculate pip value from point
         pip_value = symbol_info.point * 10 * pips
-        print(symbol_info.name)
+        #print(symbol_info.name)
         
         # Get current bid/ask prices
         current_ask = symbol_info.ask
@@ -118,12 +117,12 @@ class MetatraderSocket:
         # Required parameter already check in the request
         if message['sl'] is not None and message['tp1'] is not None and message['entry_price'] is not None:
             sl = float(message['sl'])
-            tp = float(message['tp1'])
+            tp = message['tp1']
             tp2 = float(message['tp2'])
             price = float(message['entry_price'])
             type_ = self.check_n_get_order_type(symbol_info,type_,price)
             
-        print(type_)
+        #print(type_)
         # message['trade_type'] = type_
         # message['sl'] = str(sl)
         # message['tp1'] = str(tp)
@@ -172,8 +171,9 @@ class MetatraderSocket:
         }
         if sl is not None and tp is not None:
             request["sl"] = sl
-            request["tp"] = tp
-            request["comment"]= str(tp2)
+            request["tp"] = tp2
+            #Add more tp if you like
+            request["comment"]= "|".join([str(tp)])
         logger.info("The request is ["+str(request)+"]")
         # send a trading request
         if (self.checkOldPosition()) or (self.checkOldPositionSymbol(symbol)) :
@@ -229,7 +229,7 @@ class MetatraderSocket:
         return True;
 
     def checkOldPosition(self):
-        threshold = 3
+        threshold = 10
         orders=self.mt5.positions_get()
         if orders is None:
             logger.info("No open orders error code={}".format(self.mt5.last_error()))
@@ -254,7 +254,7 @@ class MetatraderSocket:
             if positions is None:
                 logger.info("No open positions or error:", self.mt5.last_error())
                 continue
-
+            
             for position in positions:
                 # Extract trade details
                 ticket = position.ticket
@@ -262,24 +262,28 @@ class MetatraderSocket:
                 entry_price = position.price_open
                 volume = position.volume
                 comment = position.comment
-                tp1 = position.tp
+                tp2 = position.tp
                 type_ = position.type
-                if self.is_float(comment):
-                    tp2 = float(comment)
-                else:
+                tp1 = None
+                if comment is not None and len(comment)!=0:
+                    if self.is_float(comment.split("|")[0]):
+                        tp1 = float(comment.split("|")[0])
+                if tp1 is None :
                     continue;
 
                 # Current market price
                 current_price = self.mt5.symbol_info_tick(symbol).bid if position.type == self.mt5.ORDER_TYPE_SELL else self.mt5.symbol_info_tick(symbol).ask
-                logger.info(f"The open position [{ticket}] of symbol [{symbol}]  of  type {type_} is having difference of {abs(current_price - tp1)} pips. Current price: [{current_price}] tp1: [{tp1}]")
+                # logger.info(f"The open position [{ticket}] of symbol [{symbol}]  of  type {type_} is having difference of {round(abs(current_price - tp1),5)} pips. Current price: [{current_price}] tp1: [{tp1}]")
+                logger.info(f"The open position [{ticket}] of symbol [{symbol}]  of  type {type_} . Current price: [{current_price}] tp1: [{tp1}].")
                 # Check if the price is approaching TP1 (within 2-3 pips)
-
-                if abs(current_price - tp1) <= self.get_tolarance(symbol):  # Assuming 5-digit broker, adjust as needed
+                #0 - buy
+                #1 - sell
+                if (type_ == 0 and current_price >= tp1) or (type_ == 1 and current_price <= tp1):   # Assuming 5-digit broker, adjust as needed
                     # Move SL to entry price and TP to TP2
-                    self.modify_trade(ticket,symbol, new_sl=entry_price, new_tp=tp2)
+                    self.modify_trade(ticket,symbol, new_sl=entry_price, new_tp=tp2,new_comment="|".join(comment.split("|")[1:]))
                     # Close half the position
                     self.close_position(ticket, symbol, type_, volume)
-            logger.debug("Sleeping for 5 seconds")
+            logger.debug("Sleeping for 2 seconds")
             sleep(2)  # Avoid overloading the terminal
 
     def get_tolarance(self,symbol):
@@ -298,12 +302,13 @@ class MetatraderSocket:
         # Return False if Error
             return False
 
-    def modify_trade(self,ticket,symbol, new_sl, new_tp):
+    def modify_trade(self,ticket,symbol, new_sl, new_tp,new_comment):
         request = {
             "action": self.mt5.TRADE_ACTION_SLTP,
             "position": ticket,
             "sl": new_sl,
             "tp": new_tp,
+            "comment": new_comment,
         }
         logger.info(f"The modify request is {str(request)}")
         result = self.mt5.order_send(request)
@@ -327,7 +332,7 @@ class MetatraderSocket:
             half_volume = volume  # Close the full position
         else:
             # Calculate half volume and ensure it's at least MIN_VOLUME
-            half_volume = max(volume / 2, MIN_VOLUME)
+            half_volume = max(round(volume / 2,2), MIN_VOLUME)
 
          # Determine the counter-order type
         counter_order_type = self.mt5.ORDER_TYPE_BUY if position_type == self.mt5.ORDER_TYPE_SELL else self.mt5.ORDER_TYPE_SELL
