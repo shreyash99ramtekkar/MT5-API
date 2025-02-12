@@ -16,9 +16,8 @@ app.config['BUNDLE_ERRORS'] = True
 api = Api(app)
 
 
-    
-    
 api.add_resource(Trade,'/trade')
+
 def start_monitoring():
     monitor_thread = threading.Thread(target=socket.monitor_close_half_update_tp, name="OpenPositionMonitor")
     monitor_thread.daemon = True  # Allows the thread to exit when the main program does

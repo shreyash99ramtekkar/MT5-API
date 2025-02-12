@@ -1,11 +1,10 @@
 from sqlalchemy import create_engine;
 from sqlalchemy.orm import sessionmaker
-
 from constants.Constants import DATABASE_URL;
 from constants.Constants import BASE;
-
+from sqlalchemy import select
 from model.Trade import Trade
-
+from sqlalchemy.exc import SQLAlchemyError
 
 from logger.MT5ApiLogger import MT5ApiLogger
 
@@ -37,19 +36,49 @@ class TradeRepository:
             telegram_message=telegram_message,
             timestamp=message_time
         )
-        with self.Session() as session:
+        session = self.Session()  # Manually create session
+        try:
             session.add(trade)
             session.commit()
+            logger.info(f"Trade {ticket_id} saved successfully!")  
+        except SQLAlchemyError as e:
+            session.rollback()  # Safe rollback, session is still open
+            logger.error(f"Failed to save trade {ticket_id}: {e}")
+        finally:
+            session.close()  # # Rollback in case of error
         logger.info("Trade saved successfully!")
         
+    def update_trade_to_db(self,trade_info):
+        session = self.Session()  # Manually create session
+        try:
+            trade = session.query(Trade).filter_by(ticket=trade_info['trade_id']).first()
+            if not trade:
+                logger.error(f"Trade {trade_info['trade_id']} not found")
+                return {"error": "Trade not found"}
+            # Update only the provided fields
+            if "sl" in trade_info:
+                trade.stop_loss = trade_info["sl"]
+            if "tp1" in trade_info:
+                trade.take_profit1 = trade_info["tp1"]
+            if "tp2" in trade_info:
+                trade.take_profit2 = trade_info["tp2"]
+            trade.telegram_message= str(trade_info)
+            session.commit()  # Save changes to DB
+            logger.info(f"Trade {trade_info['trade_id']} updated successfully!")
+
+        except SQLAlchemyError as e:
+            session.rollback()  # Safe rollback, session is still open
+            logger.error(f"Failed to save trade {trade_info['trade_id']}: {e}")
+        finally:
+            session.close()  # # Rollback in case of error
     def process_trade_info(self,message,request,result):
         self.save_trade_to_db(result.order,
                               self.validate_key('symbol',request),
                               self.validate_key('type',request),
                               self.validate_key('price',request),
                               self.validate_key('sl',request),
-                              self.validate_key('tp',request),
-                              self.validate_key('tp2',request),
+                              self.validate_key('tp1',message),
+                              self.validate_key('tp2',message),
                               self.validate_key('volume',request),
                               self.validate_key('action',request),
                               message['time'],
@@ -62,19 +91,44 @@ class TradeRepository:
         return None
     
     def get_trade_by_trade_info(self, trade_info):
-            """
-            Retrieve trades according to the trade info
-            :param trade_info: dict
-            :return: Trade object or None if not found
-            """
-            with self.Session() as session:
-                trade = (
-                    session.query(Trade)
-                    .filter(Trade.timestamp == trade_info['time'])
-                    .filter(Trade.symbol == trade_info['currency'])
-                    .filter(Trade.stop_loss == trade_info['sl'])
-                    .filter(Trade.take_profit1 == trade_info['tp1'])
-                    .filter(Trade.take_profit2 == trade_info['tp2'])# Exact match
-                    .first()  # Get the first trade that matches
-                )
-            return trade.ticket if trade else None
+        """
+        Retrieve a trade based on the given trade information.
+
+        :param trade_info: dict containing trade details.
+        :return: Trade ticket (ID) or None if not found.
+        """
+        with self.Session() as session:
+            stmt = (
+                select(Trade)
+                .where(Trade.timestamp == trade_info["time"])
+                .where(Trade.symbol == trade_info["currency"])
+                .where(Trade.stop_loss == trade_info["sl"])
+                .where(Trade.take_profit1 == trade_info["tp1"])
+                .where(Trade.take_profit2 == trade_info["tp2"])  # Exact match
+            )
+
+            trade = session.execute(stmt).scalars().first()  # Extract result
+        
+        return trade.ticket if trade else None
+        
+    def get_trade_by_trade_ticket(self, ticket_id):
+        """Fetch a trade by its ticket ID only if SL, TP1, and TP2 are NOT NULL.
+
+        Args:
+            ticket_id (int): The trade ticket ID.
+
+        Returns:
+            Trade object or None
+        """
+        with self.Session() as session:  # Ensure session is correctly managed
+            stmt = (
+                select(Trade)
+                .where(Trade.ticket == ticket_id)
+                .where(Trade.stop_loss.is_not(None))  # SQLAlchemy 2.0 uses is_not()
+                .where(Trade.take_profit1.is_not(None))
+            )
+
+            result = session.execute(stmt).scalars().first()  # Extract result
+        return result  # Return trade object or None
+        
+        
