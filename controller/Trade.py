@@ -17,6 +17,8 @@ add_trade_parser.add_argument("sl",type=float)
 add_trade_parser.add_argument("tp1",type=float)
 add_trade_parser.add_argument("tp2",type=float)
 add_trade_parser.add_argument("time", type=str,required = True,help="Time should be sent in string")
+add_trade_parser.add_argument("channel",type=str,required=True,help="Channel name shold be in string")
+add_trade_parser.add_argument("trade_id",type=int)
 
 
 class Trade(Resource):
@@ -27,12 +29,14 @@ class Trade(Resource):
     
     def post(self):
         args = add_trade_parser.parse_args()
-        socket.create_trade(args)
-        return {"message": f'Trade recived successfully {str(args)}'}
+        order_id = socket.create_trade(args)
+        return {"message": f'Trade recived successfully {str(args)}',
+                "order_id": order_id}
     
     def put(self):
         args = add_trade_parser.parse_args()
         socket.update_trade(args)
+        logger.info(f"The trade_id for update is {args}")
         return {"message": f'Trade update request recived successfully {str(args)}'}
     
     def delete(self):
