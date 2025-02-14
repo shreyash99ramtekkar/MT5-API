@@ -8,7 +8,7 @@ from service.MetatraderSocket import MetatraderSocket
 
 fxstreetlogger = MT5ApiLogger()
 logger = fxstreetlogger.get_logger(__name__)
-
+monitor_thread = None
 socket = MetatraderSocket()
 
 app = Flask(__name__)
