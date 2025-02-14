@@ -19,6 +19,10 @@ api = Api(app)
 api.add_resource(Trade,'/trade')
 
 def start_monitoring():
+    global monitor_thread
+    if monitor_thread and monitor_thread.is_alive():
+        logger.info("Monitoring thread is already running. Skipping duplicate start.")
+        return
     monitor_thread = threading.Thread(target=socket.monitor_close_half_update_tp, name="OpenPositionMonitor")
     monitor_thread.daemon = True  # Allows the thread to exit when the main program does
     monitor_thread.start()
@@ -28,5 +32,5 @@ with app.app_context():
     start_monitoring()
     
 if __name__ == "__main__":
-    app.run(debug=True,host="0.0.0.0")
+    app.run(debug=False,host="0.0.0.0",use_reloader=False)
     

@@ -56,7 +56,8 @@ class MetatraderSocket:
         if symbol_info.name == "GOLD":
             return type_;
         pips = 10
-
+        # if symbol_info.name == "GOLD":
+        #     pips = 30
         # Calculate pip value from point
         pip_value = symbol_info.point * 10 * pips
         #print(symbol_info.name)
