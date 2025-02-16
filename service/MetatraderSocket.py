@@ -196,6 +196,9 @@ class MetatraderSocket:
         if updated: 
             logger.info("Trade updated on the metatrader5")
             self.tradedao.update_trade_to_db(message)
+            if message['trade_id'] in MetatraderSocket.open_trades:
+                MetatraderSocket.open_trades.pop(message['trade_id'])
+                logger.info('update the temp store')
             logger.info("Trade updated in the db")
         else:
             logger.info("Problem while updating trade with new sl/tps")
