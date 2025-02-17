@@ -301,9 +301,10 @@ class MetatraderSocket:
                 #1 - sell
                 if (type_ == 0 and current_price >= tp1) or (type_ == 1 and current_price <= tp1):   # Assuming 5-digit broker, adjust as needed
                     # Move SL to entry price and TP to TP2
-                    self.modify_trade(ticket,symbol, new_sl=entry_price, new_tp=tp2)
-                    # Close half the position
-                    self.close_position(ticket, symbol, type_, volume)
+                    updated = self.modify_trade(ticket,symbol, new_sl=entry_price, new_tp=tp2)
+                    if updated:
+                        # Close half the position
+                        self.close_position(ticket, symbol, type_, volume)
             logger.debug("Sleeping for 2 seconds")
             sleep(2)  # Avoid overloading the terminal
 
