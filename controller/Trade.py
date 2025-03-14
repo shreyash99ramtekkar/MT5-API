@@ -2,20 +2,20 @@ from flask_restful import Resource, reqparse
 from datetime import datetime
 
 from logger.MT5ApiLogger import MT5ApiLogger
-from service.MetatraderSocket import MetatraderSocket;
+from service.MetatraderSocket import MT5_OBJ
 
 fxstreetlogger = MT5ApiLogger()
 logger = fxstreetlogger.get_logger(__name__)
-socket = MetatraderSocket();
+socket = MT5_OBJ;
 
 add_trade_parser = reqparse.RequestParser(bundle_errors=True)
 add_trade_parser.add_argument("currency",type=str,required=True)
 add_trade_parser.add_argument("trade_type",type=str, required = True,choices=("BUY","SELL","BUY LIMIT", "SELL LIMIT"),help="Invalid Trade type : {error_msg}")
 # add_trade_parser.add_argument("entry_price",type=float,dest="price")
-add_trade_parser.add_argument("entry_price",type=float)
-add_trade_parser.add_argument("sl",type=float)
-add_trade_parser.add_argument("tp1",type=float)
-add_trade_parser.add_argument("tp2",type=float)
+add_trade_parser.add_argument("entry_price",type=float,required = True,help="Cannot be null: {error_msg}")
+add_trade_parser.add_argument("sl",type=float, required = True,help="Cannot be null: {error_msg}")
+add_trade_parser.add_argument("tp1",type=float, required=True,help="Cannot be null: {error_msg}")
+add_trade_parser.add_argument("tp2",type=float, required = True,help="Cannot be null: {error_msg}")
 add_trade_parser.add_argument("time", type=str,required = True,help="Time should be sent in string")
 add_trade_parser.add_argument("channel",type=str,required=True,help="Channel name shold be in string")
 add_trade_parser.add_argument("trade_id",type=int)

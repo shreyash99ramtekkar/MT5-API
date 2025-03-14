@@ -41,7 +41,7 @@ class MetatraderSocket:
             telegram_obj.sendMessage("Problem connecting to Metatrader5" + str(self.mt5.last_error()))
         self.mt5.terminal_info()
         
-    def check_n_get_order_type(self,symbol_info,type_,price):
+    def check_n_get_order_type(self,symbol,type_,price):
         """Check the current value is matching the telegram price if not return the buy limit or sell limit order type
 
         Args:
@@ -52,12 +52,13 @@ class MetatraderSocket:
         Returns:
             string: Type (BUY/SELL)
         """
-        # Number of pips (1 pip is typically 1, unless you need a smaller value, e.g., for precision)
-        if symbol_info.name == "GOLD":
-            return type_;
-        pips = 10
+        # # Number of pips (1 pip is typically 1, unless you need a smaller value, e.g., for precision)
         # if symbol_info.name == "GOLD":
-        #     pips = 30
+        #     return type_;
+        symbol_info = self.mt5.symbol_info(symbol)
+        pips = 10
+        if symbol_info.name == "GOLD":
+            pips = 8
         # Calculate pip value from point
         pip_value = symbol_info.point * 10 * pips
         #print(symbol_info.name)
@@ -103,7 +104,7 @@ class MetatraderSocket:
             tp = message['tp1']
             tp2 = float(message['tp2'])
             price = float(message['entry_price'])
-            type_ = self.check_n_get_order_type(symbol_info,type_,price)
+            type_ = self.check_n_get_order_type(symbol,type_,price)
             
         #print(type_)
         # message['trade_type'] = type_
@@ -206,7 +207,9 @@ class MetatraderSocket:
             
             
         
-        
+    def get_symbol_info(self,symbol):
+        return self.mt5.symbol_info(symbol)
+
         
         
         
@@ -424,36 +427,11 @@ class MetatraderSocket:
             return True
         return False
     
-    def delta_trade(self):
-        #  sl = float(message['sl'])
-            # tp = float(message['tp1'])
-            # tp2 = float(message['tp2'])
-            # price = float(message['entry_price'])
-        
-        # pips = 10
-        # if symbol == "GOLD":
-        #     pips = 20
-        # point = symbol_info.point  * 10 * pips
-        # if "BUY" == type_:
-        #     price = price - point
-        #     sl = sl - point
-        #     tp = tp - point
-        #     tp2 = tp2 - point
-        # elif "SELL" == type_:
-        #     price = price + point
-        #     sl = sl + point
-        #     tp = tp + point
-        #     tp2 = tp2 + point
-        # logger.info(f"Changing immidiate order to pending order for currency:{symbol} type:{type_} , price: {price}, sl = {sl}, tp = {tp}, tp2 ={tp2}")
 
-        # type_ = self.check_n_get_order_type(symbol_info,type_,price)
-        # message['trade_type'] = type_
-        # message['sl'] = str(sl)
-        # message['tp1'] = str(tp)
-        # message['tp2'] = str(tp2)
-        # logger.debug(symbol_info.volume_min)
-        pass
     
     
     def close_connection(self):
         self.mt5.shutdown()
+        
+        
+MT5_OBJ = MetatraderSocket()

@@ -2,6 +2,7 @@ from flask import Flask
 from flask_restful import  Api
 from logger.MT5ApiLogger import MT5ApiLogger
 from controller.Trade import Trade
+from controller.Symbol import Symbol
 import threading;
 from service.MetatraderSocket import MetatraderSocket
 
@@ -17,6 +18,7 @@ api = Api(app)
 
 
 api.add_resource(Trade,'/trade')
+api.add_resource(Symbol,'/symbol/<string:symbol_name>')
 
 def start_monitoring():
     global monitor_thread
