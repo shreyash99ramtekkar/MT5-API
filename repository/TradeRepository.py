@@ -22,7 +22,7 @@ class TradeRepository:
         BASE.metadata.create_all(engine)
         logger.info("Tables created successfully");
 
-    def save_trade_to_db(self,ticket_id,symbol, trade_type, entry_price, stop_loss, tp1, tp2, volume,action,message_time, telegram_message=None):
+    def save_trade_to_db(self,ticket_id,symbol, trade_type, entry_price, stop_loss, tp1, tp2,tp3, volume,action,message_time, telegram_message=None):
         trade = Trade(
             ticket = ticket_id,
             symbol=symbol,
@@ -32,6 +32,7 @@ class TradeRepository:
             stop_loss=stop_loss,
             take_profit1=tp1,
             take_profit2=tp2,
+            take_profit3=tp3,
             volume=volume,
             telegram_message=telegram_message,
             timestamp=message_time
@@ -79,6 +80,7 @@ class TradeRepository:
                               self.validate_key('sl',request),
                               self.validate_key('tp1',message),
                               self.validate_key('tp2',message),
+                              self.validate_key('tp3',message),
                               self.validate_key('volume',request),
                               self.validate_key('action',request),
                               message['time'],

@@ -97,12 +97,13 @@ class MetatraderSocket:
         symbol_info = self.mt5.symbol_info(symbol)
             
         type_ = message['trade_type']
-        sl, tp, tp2, price = None, None, None, None
+        sl, tp, tp2, tp3, price = None, None, None, None, None
         # Required parameter already check in the request
         if message['sl'] is not None and message['tp1'] is not None and message['entry_price'] is not None:
             sl = float(message['sl'])
             tp = message['tp1']
             tp2 = float(message['tp2'])
+            tp3 = float(message['tp3'])
             price = float(message['entry_price'])
             type_ = self.check_n_get_order_type(symbol,type_,price)
             
@@ -112,7 +113,7 @@ class MetatraderSocket:
         # message['tp1'] = str(tp)
         # message['tp2'] = str(tp2)
         # logger.debug(symbol_info.volume_min)
-        lot = 0.02;   
+        lot = 0.03;   
         #lot = symbol_info.volume_min;   
         deviation = 10
         
@@ -156,7 +157,7 @@ class MetatraderSocket:
         }
         if sl is not None and tp is not None:
             request["sl"] = sl
-            request["tp"] = tp2
+            request["tp"] = tp3
             #Add more tp if you like
          
         logger.info("The request is ["+str(request)+"]")
@@ -193,7 +194,7 @@ class MetatraderSocket:
         message -- the existing trade info
         Return: return_description
         """
-        updated = self.modify_trade(message['trade_id'],message['currency'],message['sl'],message['tp2'])
+        updated = self.modify_trade(message['trade_id'],message['currency'],message['sl'],message['tp3'])
         if updated: 
             logger.info("Trade updated on the metatrader5")
             self.tradedao.update_trade_to_db(message)
@@ -280,7 +281,7 @@ class MetatraderSocket:
                 entry_price = position.price_open
                 volume = position.volume
                 comment = position.comment
-                tp2 = position.tp
+                tp3 = position.tp
                 sl = position.sl
                 tp1 = None
                 type_ = position.type
@@ -291,23 +292,34 @@ class MetatraderSocket:
                        
                 if ticket in MetatraderSocket.open_trades:
                     tp1 = MetatraderSocket.open_trades[ticket].take_profit1
+                    tp2 = MetatraderSocket.open_trades[ticket].take_profit2
+                    tp3 = MetatraderSocket.open_trades[ticket].take_profit3
                     
-                if tp1 is None or sl == entry_price:
+                    
+                if tp1 is None or sl == tp1:
                     continue;
 
                 # Current market price
                 current_price = self.mt5.symbol_info_tick(symbol).bid if position.type == self.mt5.ORDER_TYPE_SELL else self.mt5.symbol_info_tick(symbol).ask
                 # logger.info(f"The open position [{ticket}] of symbol [{symbol}]  of  type {type_} is having difference of {round(abs(current_price - tp1),5)} pips. Current price: [{current_price}] tp1: [{tp1}]")
-                logger.info(f"The open position [{ticket}] of symbol [{symbol}]  of  type {type_} . Current price: [{current_price}] tp1: [{tp1}].")
+                logger.info(f"The open position [{ticket}] of symbol [{symbol}]  of  type {type_} . Current price: [{current_price}] tp1: [{tp1}] tp2: [{tp2}] tp3: [{tp3}]")
                 # Check if the price is approaching TP1 (within 2-3 pips)
                 #0 - buy
                 #1 - sell
-                if (type_ == 0 and current_price >= tp1) or (type_ == 1 and current_price <= tp1):   # Assuming 5-digit broker, adjust as needed
+                if sl != entry_price and ((type_ == 0 and current_price >= tp1) or (type_ == 1 and current_price <= tp1)):   # Assuming 5-digit broker, adjust as needed
                     # Move SL to entry price and TP to TP2
-                    updated = self.modify_trade(ticket,symbol, new_sl=entry_price, new_tp=tp2)
+                    updated = self.modify_trade(ticket,symbol, new_sl=entry_price, new_tp=tp3)
                     if updated:
                         # Close half the position
                         self.close_position(ticket, symbol, type_, volume)
+                      # Check if the price is approaching TP2
+                elif (type_ == 0 and current_price >= tp2) or (type_ == 1 and current_price <= tp2):
+                    # Move SL to TP1 and TP to TP3
+                    updated = self.modify_trade(ticket, symbol, new_sl=tp1, new_tp=tp3)
+                    if updated:
+                        # Close half the position
+                        self.close_position(ticket, symbol, type_, volume)
+            
             logger.debug("Sleeping for 2 seconds")
             sleep(2)  # Avoid overloading the terminal
 
@@ -358,7 +370,7 @@ class MetatraderSocket:
             half_volume = volume  # Close the full position
         else:
             # Calculate half volume and ensure it's at least MIN_VOLUME
-            half_volume = max(round(volume / 2,2), MIN_VOLUME)
+            half_volume = max(round(volume / 3,2), MIN_VOLUME)
 
          # Determine the counter-order type
         counter_order_type = self.mt5.ORDER_TYPE_BUY if position_type == self.mt5.ORDER_TYPE_SELL else self.mt5.ORDER_TYPE_SELL

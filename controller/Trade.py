@@ -16,6 +16,7 @@ add_trade_parser.add_argument("entry_price",type=float,required = True,help="Can
 add_trade_parser.add_argument("sl",type=float, required = True,help="Cannot be null: {error_msg}")
 add_trade_parser.add_argument("tp1",type=float, required=True,help="Cannot be null: {error_msg}")
 add_trade_parser.add_argument("tp2",type=float, required = True,help="Cannot be null: {error_msg}")
+add_trade_parser.add_argument("tp3",type=float, required = True,help="Cannot be null: {error_msg}")
 add_trade_parser.add_argument("time", type=str,required = True,help="Time should be sent in string")
 add_trade_parser.add_argument("channel",type=str,required=True,help="Channel name shold be in string")
 add_trade_parser.add_argument("trade_id",type=int)

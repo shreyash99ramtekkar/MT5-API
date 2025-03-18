@@ -16,6 +16,7 @@ class Trade(BASE):
     stop_loss = Column(Float, nullable=True)
     take_profit1 = Column(Float, nullable=True)
     take_profit2 = Column(Float, nullable=True)
+    take_profit3 = Column(Float, nullable=True)
     volume = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     result = Column(Float, nullable=True)
