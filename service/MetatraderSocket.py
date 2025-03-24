@@ -315,20 +315,15 @@ class MetatraderSocket:
                       # Check if the price is approaching TP2
                 elif (type_ == 0 and current_price >= tp2) or (type_ == 1 and current_price <= tp2):
                     # Move SL to TP1 and TP to TP3
-                    updated = self.modify_trade(ticket, symbol, new_sl=tp1, new_tp=tp3)
-                    if updated:
+                    # updated = self.modify_trade(ticket, symbol, new_sl=tp1, new_tp=tp3)
+                    # if updated:
                         # Close half the position
-                        self.close_position(ticket, symbol, type_, volume)
+                    self.close_position(ticket, symbol, type_, volume)
             
             logger.debug("Sleeping for 2 seconds")
             sleep(2)  # Avoid overloading the terminal
 
-    def get_tolarance(self,symbol):
-        symbol_info = self.mt5.symbol_info(symbol)
-        point = symbol_info.point  * 10 
-        if symbol == "GOLD" or symbol =="XAUUSD":
-            return point * 6
-        return point * 4
+   
 
     def is_float(self,string):
         try:
@@ -421,9 +416,34 @@ class MetatraderSocket:
                     logger.info(f"The sl is less than the open price. So not closing the order {order_id}")
                     status = False
                     continue
-                self.close_position(order_id,order.symbol,order.type,order.volume,True)
+                new_sl = self.calculate_new_sl(order.symbol,order.price_open,order.type)
+                logger.info(f"New SL is {new_sl}")
+                self.modify_trade(order_id, order.symbol, new_sl, order.tp)
+                # 
+                # self.close_position(order_id,order.symbol,order.type,order.volume,True)
         return status
             
+    def calculate_new_sl(self, symbol, price_open, order_type,risk_pips=30):
+        """Calculate the new SL based on the risk in pips.
+
+        Args:
+            price_open (float): The opening price of the order.
+            risk_pips (int): The number of pips to set the SL away from the opening price.
+            order_type (int): The type of the order (0 for BUY, 1 for SELL).
+
+        Returns:
+            float: The new SL price.
+        """
+        pip_value = self.mt5.symbol_info(symbol).point * 10
+        if order_type == self.mt5.ORDER_TYPE_BUY:
+            logger.info(f"Calculating new SL for BUY order: {price_open} - ({risk_pips} * {pip_value})")
+            new_sl = price_open - (risk_pips * pip_value)
+        else:
+            logger.info(f"Calculating new SL for SELL order: {price_open} + ({risk_pips} * {pip_value})")
+            new_sl = price_open + (risk_pips * pip_value)
+        return new_sl
+        
+    
     def close_pending_order(self,order_id):
         """
         Cancel a pending order (e.g., BUY LIMIT, SELL LIMIT).
