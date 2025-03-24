@@ -17,7 +17,7 @@ app.config['BUNDLE_ERRORS'] = True
 api = Api(app)
 
 
-api.add_resource(Trade,'/trade')
+api.add_resource(Trade,'/trade','/trade/<int:order_id>')
 api.add_resource(Symbol,'/symbol/<string:symbol_name>')
 
 def start_monitoring():

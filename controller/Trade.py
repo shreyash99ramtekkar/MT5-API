@@ -40,5 +40,7 @@ class Trade(Resource):
         logger.info(f"The trade_id for update is {args}")
         return {"message": f'Trade update request recived successfully {str(args)}'}
     
-    def delete(self):
-        return {'message': "This is a response to a DELETE request"}
+    def delete(self,order_id):
+        status = socket.close_trade(order_id)
+        logger.info(f"Close request for the trade_id {order_id}")
+        return {"message": f'Trade status {status} deleted/modified sl request recived successfully {order_id}'}

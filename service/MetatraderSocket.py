@@ -58,7 +58,7 @@ class MetatraderSocket:
         symbol_info = self.mt5.symbol_info(symbol)
         pips = 10
         if symbol_info.name == "GOLD":
-            pips = 8
+            pips = 5
         # Calculate pip value from point
         pip_value = symbol_info.point * 10 * pips
         #print(symbol_info.name)
@@ -349,7 +349,8 @@ class MetatraderSocket:
         logger.info(f"The modify request is {str(request)}")
         result = self.mt5.order_send(request)
         if result.retcode != self.mt5.TRADE_RETCODE_DONE:
-            logger.info(f"Failed to modify trade {ticket}: {result.comment}")
+            logger.info(f"Failed to modify trade {ticket}: {result.comment} : {str(self.mt5.last_error())}")
+            telegram_obj.sendMessage(f"Failed to modify trade {ticket} with symbol {symbol}: {result.comment}")
             return False
         else:
             logger.info(f"Trade {ticket} modified: SL={new_sl}, TP={new_tp}")
@@ -393,24 +394,35 @@ class MetatraderSocket:
         else:
             logger.info(f"Half of the currency [{symbol}] trade {ticket} closed: {half_volume}")
     
-    def close_trade(self,trade_info):
-        ticket_id = self.tradedao.get_trade_by_trade_info(trade_info)
-        if ticket_id:
-            logger.info(f"The trade that matches the trade info description is having ticket id {ticket_id}")
-            orders = self.mt5.orders_get(ticket=ticket_id) 
-            if orders is None or len(orders) == 0:
-                orders = self.mt5.positions_get(ticket=ticket_id)
-            if orders is None or len(orders) == 0:
-                logger.error(f"Order with ticket ID {ticket_id} not found.")
-                return
-            for order in orders:
-                logger.info(f"Found the order on mt5 : {str(order)}")
-                if self.check_pending_order(order):
-                    self.close_pending_order(ticket_id)
-                else:
-                    self.close_position(ticket_id,trade_info['currency'],order.type,order.volume,True)
-        else:
-            logger.info(f"Trade not found in db for the trade info: {str(trade_info)}")
+    def close_trade(self,order_id):
+        """_summary_
+
+        Args:
+            order_id (_type_): _description_
+        """
+        status = True
+        orders = self.mt5.orders_get(ticket=order_id) 
+        if orders is None or len(orders) == 0:
+            orders = self.mt5.positions_get(ticket=order_id)
+        if orders is None or len(orders) == 0:
+            logger.error(f"Order with ticket ID {order_id} not found.")
+            return
+        for order in orders:
+            logger.info(f"Found the order on mt5 : {str(order)}")
+            if self.check_pending_order(order):
+                logger.info(f"Pending order for order id {order_id}. Deleting the order")
+                self.close_pending_order(order_id)
+            else:
+                if order.type == self.mt5.ORDER_TYPE_BUY and order.sl >= order.price_open:
+                    logger.info(f"The sl is greater than the open price. So not closing the order {order_id}")
+                    status = False
+                    continue
+                elif order.type == self.mt5.ORDER_TYPE_SELL and order.sl <= order.price_open:
+                    logger.info(f"The sl is less than the open price. So not closing the order {order_id}")
+                    status = False
+                    continue
+                self.close_position(order_id,order.symbol,order.type,order.volume,True)
+        return status
             
     def close_pending_order(self,order_id):
         """
