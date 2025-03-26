@@ -194,7 +194,7 @@ class MetatraderSocket:
         message -- the existing trade info
         Return: return_description
         """
-        updated = self.modify_trade(message['trade_id'],message['currency'],message['sl'],message['tp3'])
+        updated = self.modify_trade(message['trade_id'],message['currency'],message['sl'],message['tp3'],message['entry_price'])
         if updated: 
             logger.info("Trade updated on the metatrader5")
             self.tradedao.update_trade_to_db(message)
@@ -334,22 +334,57 @@ class MetatraderSocket:
         # Return False if Error
             return False
 
-    def modify_trade(self,ticket,symbol, new_sl, new_tp):
-        request = {
-            "action": self.mt5.TRADE_ACTION_SLTP,
-            "position": ticket,
-            "sl": new_sl,
-            "tp": new_tp
-        }
-        logger.info(f"The modify request is {str(request)}")
+    def modify_trade(self,ticket,symbol, new_sl, new_tp, price = None):
+        """
+        Modify the SL and TP of a trade, whether it's a pending order or an open position.
+
+        Args:
+            ticket (int): The ticket ID of the trade.
+            symbol (str): The symbol of the trade.
+            new_sl (float): The new stop loss value.
+            new_tp (float): The new take profit value.
+
+        Returns:
+            bool: True if the modification was successful, False otherwise.
+        """
+        # Check if the order is a pending order or an open position
+        order = self.mt5.orders_get(ticket=ticket)
+        if order is None or len(order) == 0:
+            order = self.mt5.positions_get(ticket=ticket)
+            if order is None or len(order) == 0:
+                logger.error(f"Order with ticket ID {ticket} not found.")
+                return False
+            order_type = "position"
+        else:
+            order_type = "pending"
+        logger.info(f"Order type: {order_type}")
+        # Prepare the request based on the order type
+        if order_type == "pending":
+            request = {
+                "action": self.mt5.TRADE_ACTION_MODIFY,
+                "order": ticket,
+                "price": price,
+                "sl": new_sl,
+                "tp": new_tp
+            }
+        else:  # Open position
+            request = {
+                "action": self.mt5.TRADE_ACTION_SLTP,
+                "position": ticket,
+                "sl": new_sl,
+                "tp": new_tp
+            }
+
+        logger.info(f"The modify request for {order_type} is {str(request)}")
         result = self.mt5.order_send(request)
+
         if result.retcode != self.mt5.TRADE_RETCODE_DONE:
-            logger.info(f"Failed to modify trade {ticket}: {result.comment} : {str(self.mt5.last_error())}")
-            telegram_obj.sendMessage(f"Failed to modify trade {ticket} with symbol {symbol}: {result.comment}")
+            logger.info(f"Failed to modify {order_type} {ticket}: {result.comment} : {str(self.mt5.last_error())}")
+            telegram_obj.sendMessage(f"Failed to modify {order_type} {ticket} with symbol {symbol}: {result.comment}")
             return False
         else:
-            logger.info(f"Trade {ticket} modified: SL={new_sl}, TP={new_tp}")
-            telegram_obj.sendMessage(f"Trade {ticket} modified for symbol [{symbol}]: SL={new_sl}, TP={new_tp}")
+            logger.info(f"{order_type.capitalize()} {ticket} modified: SL={new_sl}, TP={new_tp}")
+            telegram_obj.sendMessage(f"{order_type.capitalize()} {ticket} modified for symbol [{symbol}]: SL={new_sl}, TP={new_tp}")
             return True
 
     # Close half of the trade volume
