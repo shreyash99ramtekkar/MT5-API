@@ -363,7 +363,7 @@ class MetatraderSocket:
             request = {
                 "action": self.mt5.TRADE_ACTION_MODIFY,
                 "order": ticket,
-                "price": price,
+                "price": order[0].price_open,
                 "sl": new_sl,
                 "tp": new_tp
             }
