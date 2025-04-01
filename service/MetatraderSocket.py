@@ -284,6 +284,7 @@ class MetatraderSocket:
                 tp3 = position.tp
                 sl = position.sl
                 tp1 = None
+                tp2 = None
                 type_ = position.type
                 if ticket not in MetatraderSocket.open_trades:
                     trade = self.tradedao.get_trade_by_trade_ticket(ticket)
@@ -296,7 +297,7 @@ class MetatraderSocket:
                     tp3 = MetatraderSocket.open_trades[ticket].take_profit3
                     
                     
-                if tp1 is None or sl == tp1:
+                if tp1 is None or tp2 is None or sl == tp1:
                     continue;
 
                 # Current market price
@@ -315,10 +316,10 @@ class MetatraderSocket:
                       # Check if the price is approaching TP2
                 elif (type_ == 0 and current_price >= tp2) or (type_ == 1 and current_price <= tp2):
                     # Move SL to TP1 and TP to TP3
-                    # updated = self.modify_trade(ticket, symbol, new_sl=tp1, new_tp=tp3)
-                    # if updated:
+                    updated = self.modify_trade(ticket, symbol, new_sl=tp1, new_tp=tp3)
+                    if updated:
                         # Close half the position
-                    self.close_position(ticket, symbol, type_, volume)
+                        self.close_position(ticket, symbol, type_, volume)
             
             logger.debug("Sleeping for 2 seconds")
             sleep(2)  # Avoid overloading the terminal
@@ -389,6 +390,7 @@ class MetatraderSocket:
 
     # Close half of the trade volume
     def close_position(self,ticket, symbol, position_type, volume,full_close=False):
+        status = False
         # MetaTrader 5 minimum lot size (typically 0.01, but can vary by broker)
         MIN_VOLUME = 0.01
         if full_close:
@@ -423,6 +425,8 @@ class MetatraderSocket:
             logger.info(f"Failed to close half of the trade {ticket}: {result.comment}")
         else:
             logger.info(f"Half of the currency [{symbol}] trade {ticket} closed: {half_volume}")
+            status = True
+        return status
     
     def close_trade(self,order_id):
         """_summary_
